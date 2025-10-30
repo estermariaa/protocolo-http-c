@@ -31,22 +31,22 @@ O projeto está organizado da seguinte forma para separar claramente as responsa
 ```
 .
 ├── servidor
-│   ├── servidor.c      
-│   └── Makefile      
+│ ├── servidor.c
+│ ├── Makefile
+│ └── site
+│       ├── index.html
+│       ├── cardapio_ru.pdf
+│       └── contagem_regressiva.jpeg
 ├── cliente
-│   ├── cliente.c  
-│   └── Makefile
-├── site 
-│   ├── index.html
-│   ├── cardapio_ru.pdf
-│   └── contagem_regressiva.jpeg
-├── LICENSE  
-└── README.md 
+│ ├── cliente.c
+│ └── Makefile
+├── LICENSE
+└── README.md
 ```
 
 * `cliente/` → Código-fonte e Makefile do cliente HTTP  
 * `servidor/` → Código-fonte e Makefile do servidor HTTP  
-* `site/` → Diretório de teste com arquivos servidos pelo servidor 
+* `site/` dentro de `servidor/` → Diretório de teste com arquivos servidos pelo servidor 
 
 ## Compilação
 
@@ -79,12 +79,23 @@ Você precisa informar o diretório que será servido:
 ```bash
 ./servidor <diretorio_base>
 ```
+O diretório site já está incluído no servidor:
+
+```bash
+./servidor site
+```
 
 ### Rodando o Cliente
 Para baixar um arquivo usando o cliente:
 
 ```bash
 ./cliente http://<host>:<porta>/<arquivo>
+```
+
+Caso nenhum arquivo seja baixado, o cliente assume index.html:
+
+```bash
+./cliente http://localhost:8080/
 ```
 
 ## Licença

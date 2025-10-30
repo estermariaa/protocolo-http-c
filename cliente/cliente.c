@@ -7,26 +7,48 @@
 
 #define BUFFER_SIZE 4096
 
+void parse_url(const char *url, char *host, int *porta, char *caminho) {
+    char temp[256];
+    strncpy(temp, url, sizeof(temp)-1);
+    temp[sizeof(temp)-1] = '\0';
+
+    char *p = temp;
+
+    // Remove "http://"
+    if(strncmp(p, "http://", 7) == 0) p += 7;
+
+    *porta = 80;  // porta padrão
+
+    char *slash = strchr(p, '/');
+    if(slash){
+        strcpy(caminho, slash + 1);
+        *slash = '\0';
+    }else{
+        caminho[0] = '\0';
+    }
+
+    char *colon = strchr(p, ':');
+    if(colon){
+        *colon = '\0';
+        *porta = atoi(colon + 1);
+    }
+
+    strcpy(host, p);
+
+    if(strlen(caminho) == 0)
+        strcpy(caminho, "index.html");
+}
+
 int main(int argc, char *argv[]) {
     if (argc != 2) {
         printf("Use: %s http://host:porta/arquivo\n", argv[0]);
         return 0;
     }
 
-    char url[256], host[128], caminho[128] = "";
+    char host[128], caminho[128] = "";
     int porta = 80; // padrão HTTP
 
-    strcpy(url, argv[1]);
-
-    if(sscanf(url, "http://%127[^:/]:%d/%127[^\n]", host, &porta, caminho) < 3){
-        // Se não tiver uma porta explícita, assume 80
-        sscanf(url, "http://%127[^/]/%127[^\n]", host, caminho);
-    }
-
-    if(strlen(caminho) == 0){
-        // Se o caminho ficou vazio assume o padrão index.html
-        strcpy(caminho, "index.html");
-    }
+    parse_url(argv[1], host, &porta, caminho);
 
     printf("Conectando em %s:%d\n", host, porta);
     printf("Recurso solicitado: /%s\n", caminho);

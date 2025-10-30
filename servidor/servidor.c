@@ -12,35 +12,40 @@
 // Função para listar o conteúdo de um diretório
 void listar_diretorio(int socket, const char *caminho_dir) {
     char body[BUFFER_SIZE * 2] = "<html><head><title>Listagem de Diretório</title></head><body>";
-    strcat(body, "<h1>Conteudo de ");
+    strcat(body, "<h1>Conteúdo de ");
     strcat(body, caminho_dir);
     strcat(body, "</h1><ul>");
 
-    DIR *d;
-    struct dirent *diretorio;
-    d = opendir(caminho_dir);
-    // Abre o diretorio, lê cada arquivo e cria um link
-    if(d){
-        while((diretorio = readdir(d)) != NULL){
-            if (strcmp(diretorio->d_name, ".") == 0 || strcmp(diretorio->d_name, "..") == 0) {
+    DIR *d = opendir(caminho_dir);
+    if (d) {
+        struct dirent *diretorio;
+        while ((diretorio = readdir(d)) != NULL) {
+            // Ignora "." e ".."
+            if (strcmp(diretorio->d_name, ".") == 0 || strcmp(diretorio->d_name, "..") == 0)
                 continue;
-            }
+
             char item[1024];
-        snprintf(item, sizeof(item),
-            "<li><a href=\"%s/%s\">%s</a></li>",
-            strrchr(caminho_dir, '/') ? strrchr(caminho_dir, '/') : "",
-            diretorio->d_name, diretorio->d_name);            
-        strcat(body, item);
+            // Cria link relativo ao diretório atual
+            snprintf(item, sizeof(item),
+                     "<li><a href=\"%s\">%s</a></li>",
+                     diretorio->d_name, diretorio->d_name);
+            strcat(body, item);
         }
         closedir(d);
+    } else {
+        strcat(body, "<li>Erro ao abrir diretório</li>");
     }
+
     strcat(body, "</ul></body></html>");
 
-    // Envia o cabeçalho e o corpo HTML
+    // Envia cabeçalho HTTP
     char cabecalho[256];
-    snprintf(cabecalho, sizeof(cabecalho),"HTTP/1.1 200 OK\r\n" "Content-Length: %ld\r\n" "Content-Type: text/html\r\n\r\n", strlen(body));
-    write(socket, cabecalho, strlen(cabecalho));
-    write(socket, body, strlen(body));
+    snprintf(cabecalho, sizeof(cabecalho),
+             "HTTP/1.1 200 OK\r\nContent-Length: %ld\r\nContent-Type: text/html\r\n\r\n",
+             strlen(body));
+
+    (void) write(socket, cabecalho, strlen(cabecalho));
+    (void) write(socket, body, strlen(body));
 }
 
 // Função para determinar o tipo do arquivo com base na extensão
@@ -119,6 +124,12 @@ int main(int argc, char *argv[]) {
         return 0;
     }
 
+    int opt = 1;
+    if(setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) < 0){
+        perror("setsockopt(SO_REUSEADOR) failed");
+        return 0;
+    }
+
     // Configurando o endereço do servidor
     // sin_family: define a família do protocolo como IPv4
     // sin_addr.s_addr: configura o endereço IP. INADDR_ANY permite que o 
@@ -169,37 +180,31 @@ int main(int argc, char *argv[]) {
 
         // Monta o caminho completo do recurso pedido
         char caminho_completo[1024];
-
-        if(strcmp(path, "/") == 0){
-            snprintf(caminho_completo, sizeof(caminho_completo), "%s", base_diretorio);
-        }else{
-            snprintf(caminho_completo, sizeof(caminho_completo), "%s%s", base_diretorio, path);
-        }
+        snprintf(caminho_completo, sizeof(caminho_completo), "%s%s", base_diretorio, path);
         printf("Recurso solicitado: %s\n", caminho_completo);
 
-        // Verifica as informações do recurso (arquivo ou diretório)
         struct stat path_stat;
         if(stat(caminho_completo, &path_stat) == -1){
             const char *erro =
                 "HTTP/1.1 404 Not Found\r\n"
                 "Content-Type: text/html\r\n\r\n"
                 "<html><body><h1>404 - Arquivo não encontrado</h1></body></html>";
-            write(new_socket, erro, strlen(erro));
+            (void) write(new_socket, erro, strlen(erro));
         }
         else if(S_ISDIR(path_stat.st_mode)){
+            // Se for diretório, tenta o index.html
             char caminho_index[2048];
             snprintf(caminho_index, sizeof(caminho_index), "%s/index.html", caminho_completo);
 
             if(access(caminho_index, F_OK) == 0){
                 enviar_arquivo(new_socket, caminho_index);
-            }else{
+            } else {
                 listar_diretorio(new_socket, caminho_completo);
             }
         }
-        else if (S_ISREG(path_stat.st_mode)) {
+        else if(S_ISREG(path_stat.st_mode)){
             enviar_arquivo(new_socket, caminho_completo);
         }
-
         // Fechando o socket do cliente
         close(new_socket);
     }
