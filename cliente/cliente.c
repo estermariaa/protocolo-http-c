@@ -99,18 +99,24 @@ int main(int argc, char *argv[]) {
     char buffer[BUFFER_SIZE];
     int bytes_lidos; //quantos bytes read() retornou
     int header_lido = 0; // indica se já encontramos e descartamos o cabeçalho
+    char resposta[BUFFER_SIZE * 2] = ""; // buffer temporário para acumular o cabeçalho
+    int acumulado = 0;
 
-    while((bytes_lidos = read(sock, buffer, sizeof(buffer))) > 0){
-        if(!header_lido){
-            char *corpo = strstr(buffer, "\r\n\r\n");
-            if(corpo){
+    while((bytes_lidos = read(sock, buffer, sizeof(buffer))) > 0) {
+        if(!header_lido) {
+            memcpy(resposta + acumulado, buffer, bytes_lidos);
+            acumulado += bytes_lidos;
+            resposta[acumulado] = '\0';
+
+            char *corpo = strstr(resposta, "\r\n\r\n");
+            if(corpo) {
                 header_lido = 1;
-                corpo += 4; // pula os "\r\n\r\n"
-                int tamanho_cabecalho = corpo - buffer;
-                int tamanho_corpo = bytes_lidos - tamanho_cabecalho;
+                corpo += 4; // pula os \r\n\r\n
+                int tamanho_cabecalho = corpo - resposta;
+                int tamanho_corpo = acumulado - tamanho_cabecalho;
                 fwrite(corpo, 1, tamanho_corpo, saida);
             }
-        }else{
+        } else {
             fwrite(buffer, 1, bytes_lidos, saida);
         }
     }
